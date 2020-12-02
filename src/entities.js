@@ -6,7 +6,7 @@ const entities = {
         this.height = this.htmlCanvas.height;
     
         this.clear = () => {
-            this.drawRect(0, 0, this.width, this.height, 'black')
+            this.drawRect(0, 0, this.width, this.height, '#666')
         }
     
         this.drawRect = (x, y, w, h, color) => {
@@ -16,7 +16,9 @@ const entities = {
     
         this.drawCell = (cell) => {
             this.context.fillStyle = cell.color;
-            if (cell.occupant && cell.occupant.isPlayer) {
+            if (cell.occupant 
+                // && cell.occupant.isPlayer
+                ) {
                 this.context.fillStyle = cell.occupant.color;
             }
 
@@ -47,7 +49,8 @@ const entities = {
         this.y = y;
         this.w = w;
         this.h = h;
-        this.color = '#777777';
+        this.defaultColor = '#999';
+        this.color = this.defaultColor;
         this.occupant = occupant;
 
         this.setOccupant = (occupant) => this.occupant = occupant;
@@ -60,8 +63,6 @@ const entities = {
         board.height = height;
         board.gridSize = gridSize;
         board.gridMarginSize = gridMarginSize;
-        board.player = null;
-        board.playerLocation = null;
         
         const cellWidthWithMargin = width / gridSize;
         const cellHeightWithMargin = height / gridSize;
@@ -79,15 +80,32 @@ const entities = {
         }
 
         board.setPlayer = playerEntity => board.player = playerEntity;
+        board.setEnemy = enemyEntity => board.enemy = enemyEntity;
 
         board.setPlayerLocation = (row, cell) => {
+            // set lastLocation for player
+            board.player.lastLocation = board.player.location || { row, cell }
+
             // remove player from current location
-            if (board.playerLocation) {
-                board[board.playerLocation.row][board.playerLocation.cell].setOccupant(null)
+            if (board.player && board.player.location) {
+                board[board.player.location.row][board.player.location.cell].setOccupant(null)
             }
 
             board[row][cell].setOccupant(board.player);
-            board.playerLocation = { row, cell }
+            board.player.location = { row, cell }
+        }
+        
+        board.setEnemyLocation = (row, cell) => {
+            // set lastLocation for enemy
+            board.enemy.lastLocation = board.enemy.location || { row, cell }
+
+            // remove enemy from current location
+            if (board.enemy && board.enemy.location) {
+                board[board.enemy.location.row][board.enemy.location.cell].setOccupant(null);
+            }
+
+            board[row][cell].setOccupant(board.enemy);
+            board.enemy.location = { row, cell }
         }
 
         board.getMouseCoordinates = (mouseEvent) => {

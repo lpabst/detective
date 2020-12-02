@@ -5,27 +5,49 @@ export const playerTypes = {
     Outlaw: 'Outlaw',
 }
 
+/*
+    Some basic mechanics are in place, but still quite a bit to do if I ever get the drive to do it. 
+        - TODO: highlight quadrant each player is in, then hide the enemy from the player's screen
+        - TODO: enemy outlaw should be smarter and enemy detective shouldn't know player's location. Should move instead based on the quadrant the outlaw is in
+        - TODO: add an APB feature where the detective gets 3 or so APBs that tell them the exact location of the outlaw. Optionally we could inform the outlaw when an APB is used
+        - TODO: eventually I could move the logic to a server and have this be a 2 person game hosted somewhere. That would require a lobby and stuff though, so idk if that's worth it unless I want to do it as a learning exercise :D
+        - TODO: could make the grid size and difficulty selectable by the player before the game starts
+        - TODO: before the game starts the player(s) could spend some points each round to upgrade their character (faster move speed, more APBs, etc)
+*/
+
 const game = {
     init: (playerType, gameEndCallback) => {
-        const gridSize = 40;
-        const gridMarginSize = 2;
+        const gridSize = 20;
+        const gridMarginSize = 6;
         const canvas = new entities.Canvas('canvas');
         const board = new entities.Board(canvas.width, canvas.height, gridSize, gridMarginSize);
         
         // place player and enemy entities on board
-        const detective = new entities.Detective(playerType === playerTypes.Detective, 3);
+        const detective = new entities.Detective(playerType === playerTypes.Detective, 2);
         const outlaw = new entities.Outlaw(playerType === playerTypes.Outlaw, 2);
         let randomEnemyRow = Math.floor(Math.random() * gridSize / 2);
         const randomEnemyCell = Math.floor(Math.random() * gridSize);
         if (playerType === playerTypes.Detective) {
-            randomEnemyRow += gridSize / 2;
-            board[randomEnemyRow][randomEnemyCell].setOccupant(outlaw);
             board.setPlayer(detective);
-            board.setPlayerLocation(5, 10);
+            board.setPlayerLocation(
+                Math.floor(gridSize / 5), 
+                Math.floor(gridSize / 2)
+            );
+            board.setEnemy(outlaw);
+            randomEnemyRow += gridSize / 2;
+            board.setEnemyLocation(randomEnemyRow, randomEnemyCell);
+            board.detective = board.player;
+            board.outlaw = board.enemy;
         } else {
-            board[randomEnemyRow][randomEnemyCell].setOccupant(detective);
             board.setPlayer(outlaw);
-            board.setPlayerLocation(25, 30);
+            board.setPlayerLocation(
+                Math.floor(gridSize * 0.75), 
+                Math.floor(gridSize * 0.85)
+            );
+            board.setEnemy(detective);
+            board.setEnemyLocation(randomEnemyRow, randomEnemyCell);
+            board.detective = board.enemy;
+            board.outlaw = board.player;
         }
 
         const data = { 
@@ -35,7 +57,7 @@ const game = {
             animationFrame: 0, 
             gameOver: false, 
             gameRunning: true, 
-            score: 0, 
+            round: 1, 
             gameEndCallback,
         };
 
@@ -48,22 +70,100 @@ const game = {
         game.render(data);
     },
 
+    endOfRound: (data) => {
+        data.round++;
+        if (data.round > 10){
+            if (data.playerType === playerTypes.Detective) game.gameOver(data, 'Player detective loses :(')
+            else game.gameOver(data, 'Player Outlaw wins!')
+        }
+
+        // check if detective is within one square of outlaw
+        const playerRowProximity = Math.abs(data.board.player.location.row - data.board.enemy.location.row);
+        const playerCellProximity = Math.abs(data.board.player.location.cell - data.board.enemy.location.cell);
+        if (playerRowProximity <= 1 && playerCellProximity <= 1) {
+            if (data.playerType === playerTypes.Detective) game.gameOver(data, 'Player Detective wins!')
+            else game.gameOver(data, 'Player Outlaw loses :(')
+        }
+
+        // check if detective is on outlaw's last vacated square
+        if (data.board.detective.location.row === data.board.outlaw.lastLocation.row
+            && data.board.detective.location.cell === data.board.outlaw.lastLocation.cell    
+        ){
+            if (data.playerType === playerTypes.Detective) game.gameOver(data, "Player Detective wins!")
+            else game.gameOver(data, 'Player Outlaw loses :(')
+        }
+    },
+
+    // logic for enemy Outlaw movement
+    moveEnemyOutlaw: (data) => {
+        const board = data.board;
+        const enemy = board.enemy;
+
+        // move randomly but stay within the board boundaries
+        const rowMovement = Math.floor(Math.random() * enemy.moveSpeed * 2) - enemy.moveSpeed
+        const cellMovement = Math.floor(Math.random() * enemy.moveSpeed * 2) - enemy.moveSpeed
+        let newRow = enemy.location.row + rowMovement;
+        let newCell = enemy.location.cell + cellMovement;
+        if (newRow < 0) newRow = 0
+        if (newRow > board.length - 1) newRow = board.length - 1;
+        if (newCell < 0) newCell = 0;
+        if (newCell > board[0].length - 1) newCell = board[0].length - 1;
+        board.setEnemyLocation(newRow, newCell)
+    },
+
+    // logic for enemy Detective movement
+    moveEnemyDetective: (data) => {
+        const board = data.board;
+        const { enemy, player } = board;
+        let newRow = enemy.location.row;
+        let newCell = enemy.location.cell;
+
+        // move towards outlaws last location 
+        if (player.lastLocation.row < enemy.location.row) {
+            newRow -= enemy.moveSpeed;
+            if (newRow < player.lastLocation.row) newRow = player.lastLocation.row;
+        }
+        if (player.lastLocation.row > enemy.location.row) {
+            newRow += enemy.moveSpeed;
+            if (newRow > player.lastLocation.row) newRow = player.lastLocation.row;
+        }
+        if (player.lastLocation.cell < enemy.location.cell) {
+            newCell -= enemy.moveSpeed;
+            if (newCell < player.lastLocation.cell) newCell = player.lastLocation.cell;
+        }
+        if (player.lastLocation.cell > enemy.location.cell) {
+            newCell += enemy.moveSpeed;
+            if (newCell > player.lastLocation.cell) newCell = player.lastLocation.cell;
+        }
+
+        board.setEnemyLocation(newRow, newCell)
+    },
+
     handleMousedown: (e, data) => {
-        // console.log(e, data);
         const mouseCoordinates = data.board.getMouseCoordinates(e);
 
-        console.log(mouseCoordinates)
-        console.log(data);
-        // console.log(e)
+        if (window.debug){
+            console.log(mouseCoordinates)
+            console.log(data);
+        }
 
-        // if square is movable by player, move there
-        const rowProximity = Math.abs(data.board.playerLocation.row - mouseCoordinates.row);
-        const cellProximity = Math.abs(data.board.playerLocation.cell - mouseCoordinates.cell);
+        // if square can be moved to by player, move there
+        const rowProximity = Math.abs(data.board.player.location.row - mouseCoordinates.row);
+        const cellProximity = Math.abs(data.board.player.location.cell - mouseCoordinates.cell);
         if (data.board.player && 
             rowProximity <= data.board.player.moveSpeed && 
             cellProximity <= data.board.player.moveSpeed 
-        ) {
-            data.board.setPlayerLocation(mouseCoordinates.row, mouseCoordinates.cell)
+        ) {        
+            if (data.playerType === playerTypes.Detective) {
+                game.moveEnemyOutlaw(data);
+                data.board.setPlayerLocation(mouseCoordinates.row, mouseCoordinates.cell)
+            } else {
+                data.board.setPlayerLocation(mouseCoordinates.row, mouseCoordinates.cell)
+                game.moveEnemyDetective(data);
+            }
+            
+            // handle game business logic to see if the game is over
+            game.endOfRound(data);
         }
         
         game.render(data);
@@ -73,7 +173,7 @@ const game = {
         const mouseCoordinates = data.board.getMouseCoordinates(e);
 
         // set previous hovered cell back to gray then calculate current hovered cell
-        if (data.hoveredCell) data.hoveredCell.setColor('#777777')
+        if (data.hoveredCell) data.hoveredCell.setColor(data.hoveredCell.defaultColor)
         data.hoveredCell = null;
         if (
             data.board[mouseCoordinates.row] && 
@@ -83,8 +183,8 @@ const game = {
         }
         
         // if mouse is over a cell the player can move to, highlight it
-        const rowProximity = Math.abs(data.board.playerLocation.row - mouseCoordinates.row);
-        const cellProximity = Math.abs(data.board.playerLocation.cell - mouseCoordinates.cell);
+        const rowProximity = Math.abs(data.board.player.location.row - mouseCoordinates.row);
+        const cellProximity = Math.abs(data.board.player.location.cell - mouseCoordinates.cell);
         if (data.hoveredCell && 
             data.board.player && 
             rowProximity <= data.board.player.moveSpeed && 
@@ -96,39 +196,42 @@ const game = {
         game.render(data);
     },
 
-    update: data => {
-        // TODO: update outlaw & player positions based on user input
-        // TODO: edges of canvas are boundaries       
-    },
-
     render: data => {
         let { canvas, board } = data;
 
         canvas.clear();
 
-        // draw board
+        // draw cells
         board.forEach(row => {
             row.forEach(cell => {
                 canvas.drawCell(cell)
             })
         })
+
+        // draw outline for quadrants
+        canvas.drawRect(
+            (board.width / 2) - (board.gridMarginSize / 2), 
+            0, 
+            board.gridMarginSize, 
+            board.height, 
+            '#200'
+        )
+        canvas.drawRect(
+            0, 
+            (board.height / 2) - (board.gridMarginSize / 2), 
+            board.width, 
+            board.gridMarginSize, 
+            '#200'
+        )
     },
     
-    gameOver: data => {
+    gameOver: (data, gameOverMessage = 'Game Over') => {
         let { canvas } = data;
-
         game.render(data);
+        canvas.drawText(200, 300, gameOverMessage, 42)
 
-        canvas.drawText(200, 300, 'Game Over', 42)
-
-        if (data.gameOverMessage) {
-            document.getElementById('messageDiv').innerText = data.gameOverMessage;
-        }
-        
-        document.querySelectorAll('.btn').forEach( btn => btn.style.visibility = 'visible');
-
-        // remove game keydown event listener
-        window.removeEventListener('keydown', data.keydownListener);
+        // remove game event listeners
+        window.removeEventListener('mousemove', data.mousemoveListener);
         window.removeEventListener('mousedown', data.mousedownListener)
 
         // call game over callback
