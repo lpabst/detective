@@ -1,23 +1,44 @@
-import logo from './logo.svg';
+import React, { useState } from 'react';
+import game, { playerTypes } from './game.js';
 import './App.css';
 
-function App() {
+function App (){
+  const [playerType, setPlayerType] = useState('');
+  const [showControls, setShowControls] = useState(true);
+
+  function startNewGame(playerType) {
+    setShowControls(false);
+    setPlayerType(playerType)
+    game.init(playerType, gameEndCallback);
+  }
+
+  function gameEndCallback() {
+    setShowControls(true);
+  }
+
   return (
-    <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.js</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header>
+    <div className="pirates">
+      <div className="gameWrapper" >
+        <p className='usernameDisplay'>Playing as: {playerType}</p>
+        {showControls && (
+          <div className='controls' >
+            <div className='btn' id="startBtn" onClick={() => startNewGame(playerTypes.Detective)} >Play as Detective</div>
+            <div className='btn' id="startBtn" onClick={() => startNewGame(playerTypes.Outlaw)} >Play as Outlaw</div>
+          </div>
+        )}
+
+        <div className='canvasWrapper'>
+          <canvas width='800' height='800' id='canvas'></canvas>
+          <div id='messageDiv' ></div>
+          <div id='typedWord' ></div>
+        </div>
+
+        <ul className='instructions'>
+          <li>Click on a cell to move there</li>
+        </ul>
+
+      </div>
+
     </div>
   );
 }
