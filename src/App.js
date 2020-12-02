@@ -36,7 +36,7 @@ function App (){
         <ul className='instructions'>
           <li>Click on a cell to move there</li>
           <li>If the detective lands within one square of the outlaw OR on the cell the outlaw just vacated, the detective wins</li>
-          <li>If the outlaw survives 20 rounds, the outlaw wins</li>
+          <li>If the outlaw survives 10 rounds, the outlaw wins</li>
         </ul>
 
       </div>

@@ -73,24 +73,27 @@ const game = {
     endOfRound: (data) => {
         data.round++;
         if (data.round > 10){
-            if (data.playerType === playerTypes.Detective) game.gameOver(data, 'Player detective loses :(')
-            else game.gameOver(data, 'Player Outlaw wins!')
+            if (data.playerType === playerTypes.Detective) 
+                return game.gameOver(data, 'Player detective loses :(')
+            else return game.gameOver(data, 'Player Outlaw wins!')
         }
 
         // check if detective is within one square of outlaw
         const playerRowProximity = Math.abs(data.board.player.location.row - data.board.enemy.location.row);
         const playerCellProximity = Math.abs(data.board.player.location.cell - data.board.enemy.location.cell);
         if (playerRowProximity <= 1 && playerCellProximity <= 1) {
-            if (data.playerType === playerTypes.Detective) game.gameOver(data, 'Player Detective wins!')
-            else game.gameOver(data, 'Player Outlaw loses :(')
+            if (data.playerType === playerTypes.Detective) 
+                return game.gameOver(data, 'Player Detective wins!')
+            else return game.gameOver(data, 'Player Outlaw loses :(')
         }
 
         // check if detective is on outlaw's last vacated square
         if (data.board.detective.location.row === data.board.outlaw.lastLocation.row
             && data.board.detective.location.cell === data.board.outlaw.lastLocation.cell    
         ){
-            if (data.playerType === playerTypes.Detective) game.gameOver(data, "Player Detective wins!")
-            else game.gameOver(data, 'Player Outlaw loses :(')
+            if (data.playerType === playerTypes.Detective) 
+                return game.gameOver(data, "Player Detective wins!")
+            else return game.gameOver(data, 'Player Outlaw loses :(')
         }
     },
 
@@ -223,12 +226,13 @@ const game = {
             board.gridMarginSize, 
             '#200'
         )
+
+        // draw any game message text
+        if (data.message) canvas.drawText(200, 300, data.message, 42)
     },
     
     gameOver: (data, gameOverMessage = 'Game Over') => {
-        let { canvas } = data;
-        game.render(data);
-        canvas.drawText(200, 300, gameOverMessage, 42)
+        data.message = gameOverMessage;
 
         // remove game event listeners
         window.removeEventListener('mousemove', data.mousemoveListener);
